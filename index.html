@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LooMap</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      font-family: Arial, sans-serif;
+    }
+
+    #sidebar {
+      width: 280px;
+      padding: 15px;
+      background: #f4f4f4;
+      border-right: 1px solid #ccc;
+    }
+
+    #map {
+      height: 100vh;
+      flex: 1;
+    }
+
+    .card {
+      position: absolute;
+      bottom: 20px;
+      left: 300px;
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      width: 250px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>🚻 LooMap</h2>
+
+  <h3>Filters</h3>
+  <label><input type="checkbox" id="accessible"> Accessible</label><br>
+  <label><input type="checkbox" id="lactation"> Lactation</label><br>
+  <label><input type="checkbox" id="genderNeutral"> Gender Neutral</label><br>
+
+  <button onclick="applyFilters()">Apply Filters</button>
+</div>
+
+<div id="map"></div>
+<div id="infoCard" class="card hidden"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+/* MIT coordinates (center map here) */
+const map = L.map('map').setView([42.3601, -71.0942], 16);
+
+/* Tile layer (aerial-ish street map) */
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+/* Fake “current location” marker */
+const userMarker = L.marker([42.3601, -71.0942]).addTo(map)
+  .bindPopup("📍 You are here (MIT)")
+  .openPopup();
+
+/* Bathroom data */
+const bathrooms = [
+  {
+    name: "Stata Center Bathroom",
+    lat: 42.3613,
+    lng: -71.0905,
+    stalls: 5,
+    occupied: 3,
+    accessible: true,
+    lactation: false,
+    genderNeutral: true,
+    soap: 30,
+    trash: 85
+  },
+  {
+    name: "Student Center Bathroom",
+    lat: 42.3592,
+    lng: -71.0945,
+    stalls: 4,
+    occupied: 1,
+    accessible: true,
+    lactation: true,
+    genderNeutral: false,
+    soap: 80,
+    trash: 20
+  }
+];
+
+let markers = [];
+
+/* Status logic */
+function getColor(b) {
+  if (b.trash > 80 || b.soap < 20) return "red";
+  if (b.occupied / b.stalls > 0.7) return "orange";
+  return "green";
+}
+
+/* Render markers */
+function renderMap(data) {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  data.forEach(b => {
+    const marker = L.circleMarker([b.lat, b.lng], {
+      radius: 8,
+      fillColor: getColor(b),
+      color: "#000",
+      weight: 1,
+      fillOpacity: 0.8
+    }).addTo(map);
+
+    marker.on("click", () => showInfo(b));
+    markers.push(marker);
+  });
+}
+
+/* Info card */
+function showInfo(b) {
+  const card = document.getElementById("infoCard");
+  card.classList.remove("hidden");
+
+  card.innerHTML = `
+    <h4>${b.name}</h4>
+    <p>Available: ${b.stalls - b.occupied}/${b.stalls}</p>
+    <p>Soap: ${b.soap}%</p>
+    <p>Trash: ${b.trash}%</p>
+    <p>
+      ${b.accessible ? "🦽" : ""}
+      ${b.lactation ? "🤱" : ""}
+      ${b.genderNeutral ? "🚻" : ""}
+    </p>
+  `;
+}
+
+/* Filters */
+function applyFilters() {
+  const accessible = document.getElementById("accessible").checked;
+  const lactation = document.getElementById("lactation").checked;
+  const genderNeutral = document.getElementById("genderNeutral").checked;
+
+  const filtered = bathrooms.filter(b => {
+    if (accessible && !b.accessible) return false;
+    if (lactation && !b.lactation) return false;
+    if (genderNeutral && !b.genderNeutral) return false;
+    return true;
+  });
+
+  renderMap(filtered);
+}
+
+/* Initial load */
+renderMap(bathrooms);
+</script>
+
+</body>
+</html>
